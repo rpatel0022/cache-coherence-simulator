@@ -212,8 +212,8 @@ button:active {
 .single-view {
     flex: 1;
     display: grid;
-    grid-template-rows: auto 1fr auto;
-    overflow: hidden;
+    grid-template-rows: auto auto auto 1fr auto;
+    overflow: auto;
 }
 
 /* Cache State Grid */
@@ -286,6 +286,7 @@ button:active {
 /* Memory Panel */
 .memory-section {
     padding: 0 16px 12px;
+    overflow: hidden;
 }
 
 .memory-section h3 {
@@ -311,12 +312,121 @@ button:active {
     font-size: 0.85rem;
 }
 
+/* Step History Table */
+.history-section {
+    padding: 0 16px 12px;
+    overflow: auto;
+}
+
+.history-section h3 {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.history-table-wrap {
+    overflow-x: auto;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+.history-table th,
+.history-table td {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.history-table th {
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.history-table td:first-child {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--bg-card);
+    position: sticky;
+    left: 0;
+    z-index: 0;
+}
+
+.history-table td:nth-child(2) {
+    text-align: left;
+    color: var(--text-muted);
+}
+
+.history-table th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+}
+
+.history-table th:nth-child(2) {
+    position: sticky;
+    z-index: 2;
+}
+
+.history-table .history-row-group:last-child td {
+    border-bottom: 2px solid var(--accent);
+}
+
+.history-table .history-row-group td {
+    border-bottom: none;
+}
+
+.history-table .history-row-group tr:last-child td {
+    border-bottom: 1px solid var(--border);
+}
+
+.history-table .group-separator td {
+    border-top: 2px solid var(--border);
+}
+
+.history-state {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    min-width: 28px;
+}
+
+.history-state.hs-M { background: var(--state-m); color: white; }
+.history-state.hs-E { background: var(--state-e); color: white; }
+.history-state.hs-O { background: var(--state-o); color: white; }
+.history-state.hs-S { background: var(--state-s); color: white; }
+.history-state.hs-I { background: var(--state-i); color: white; opacity: 0.5; }
+
+.history-state.changed {
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
 /* Bottom section — Bus log + Stats */
 .bottom-section {
     display: grid;
     grid-template-columns: 1fr 280px;
-    border-top: 1px solid var(--border);
-    max-height: 250px;
+    height: 200px;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .bus-log {
@@ -331,6 +441,39 @@ button:active {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 8px;
+}
+
+/* Resize handle */
+.resize-handle {
+    height: 5px;
+    background: var(--border);
+    cursor: ns-resize;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.resize-handle:hover,
+.resize-handle.dragging {
+    background: var(--accent);
+}
+
+.resize-handle::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 3px;
+    border-top: 1px solid var(--text-muted);
+    border-bottom: 1px solid var(--text-muted);
+    opacity: 0.5;
+}
+
+.resize-handle:hover::after,
+.resize-handle.dragging::after {
+    border-color: white;
+    opacity: 0.8;
 }
 
 .bus-log-entries {

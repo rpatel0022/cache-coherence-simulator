@@ -33,6 +33,7 @@
     const compareView = document.getElementById('compareView');
     const barChart = document.getElementById('barChart');
     const traceDisplay = document.getElementById('traceDisplay');
+    const historyTable = document.getElementById('historyTable');
     const modeTabs = document.querySelectorAll('.mode-tab');
 
     // ── Init ──
@@ -126,6 +127,10 @@
         traceInput.classList.remove('hidden');
         traceDisplay.classList.add('hidden');
         traceDisplay.innerHTML = '';
+
+        // Clear history
+        historyEntries = [];
+        historyTable.innerHTML = '<div style="padding: 12px; color: var(--text-muted); font-size: 0.85rem;">Step through to build history</div>';
 
         if (mode === 'single') {
             sim = new Simulator(getNumProcs(), getProtocol());
@@ -266,6 +271,13 @@
         statBus.textContent = m.busTraffic;
         statInv.textContent = m.invalidations;
         statWb.textContent = m.writebacks;
+
+        // History table
+        historyEntries.push({
+            opLabel: `P${op.proc} ${op.op === 'R' ? 'Read' : 'Write'} ${op.block}`,
+            cacheSnapshot: result.cacheSnapshot
+        });
+        renderHistoryTable();
     }
 
     function renderCacheGrid(simulator, container, highlightProc, highlightBlock) {
@@ -401,6 +413,76 @@
             makeBarGroup('Writebacks', msi.writebacks, mesi.writebacks, moesi.writebacks, maxWb);
     }
 
+    // ── Step History Table ──
+    // Stores previous cache snapshots to detect changes
+    let historyEntries = []; // { opLabel, cacheSnapshot, blocks }
+
+    function renderHistoryTable() {
+        if (historyEntries.length === 0) {
+            historyTable.innerHTML = '<div style="padding: 12px; color: var(--text-muted); font-size: 0.85rem;">Step through to build history</div>';
+            return;
+        }
+
+        const numProcs = sim.numProcessors;
+        // Collect all blocks across all history entries
+        const blockSet = new Set();
+        for (const entry of historyEntries) {
+            for (const b of Object.keys(entry.cacheSnapshot[0] || {})) blockSet.add(b);
+        }
+        const blocks = Array.from(blockSet).sort();
+
+        if (blocks.length === 0) return;
+
+        // Build header: Operation | Block | P0 | P1 | P2 | P3
+        let html = '<table class="history-table"><thead><tr>';
+        html += '<th>Operation</th><th>Block</th>';
+        for (let i = 0; i < numProcs; i++) html += `<th>P${i}</th>`;
+        html += '</tr></thead><tbody>';
+
+        // Initial row
+        html += buildHistoryRows('&lt;initial&gt;', null, blocks, numProcs, null);
+
+        // One group of rows per step
+        for (let i = 0; i < historyEntries.length; i++) {
+            const entry = historyEntries[i];
+            const prev = i === 0 ? null : historyEntries[i - 1].cacheSnapshot;
+            html += buildHistoryRows(entry.opLabel, entry.cacheSnapshot, blocks, numProcs, prev);
+        }
+
+        html += '</tbody></table>';
+        historyTable.innerHTML = html;
+
+        // Scroll to bottom
+        historyTable.scrollTop = historyTable.scrollHeight;
+    }
+
+    function buildHistoryRows(label, snapshot, blocks, numProcs, prevSnapshot) {
+        let html = '';
+        for (let b = 0; b < blocks.length; b++) {
+            const block = blocks[b];
+            html += '<tr';
+            if (b === 0) html += ' class="group-separator"';
+            html += '>';
+
+            // Operation label spans all block rows
+            if (b === 0) {
+                html += `<td rowspan="${blocks.length}">${label}</td>`;
+            }
+
+            html += `<td>${block}</td>`;
+
+            for (let p = 0; p < numProcs; p++) {
+                const state = snapshot ? (snapshot[p][block] ? snapshot[p][block].state : 'I') : 'I';
+                const prevState = prevSnapshot ? (prevSnapshot[p][block] ? prevSnapshot[p][block].state : 'I') : null;
+                const changed = prevState !== null && prevState !== state ? ' changed' : '';
+                html += `<td><span class="history-state hs-${state}${changed}">${state}</span></td>`;
+            }
+
+            html += '</tr>';
+        }
+        return html;
+    }
+
     // ── Trace Display ──
     function showTraceDisplay() {
         traceInput.classList.add('hidden');
@@ -434,6 +516,43 @@
         traceSelect.addEventListener('change', loadSelectedTrace);
         protocolSelect.addEventListener('change', resetSimulation);
         procCountSelect.addEventListener('change', resetSimulation);
+
+        // Drag-to-resize panels
+        function setupResizeHandle(handleId, targetId, direction) {
+            const handle = document.getElementById(handleId);
+            const target = document.getElementById(targetId);
+            let dragging = false;
+            let startY, startHeight;
+
+            handle.addEventListener('mousedown', (e) => {
+                dragging = true;
+                startY = e.clientY;
+                startHeight = target.offsetHeight;
+                handle.classList.add('dragging');
+                document.body.style.cursor = 'ns-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                // direction: 'below' = dragging resizes section above, 'above' = section below
+                const delta = direction === 'above' ? (startY - e.clientY) : (e.clientY - startY);
+                const newHeight = Math.max(0, Math.min(600, startHeight + delta));
+                target.style.height = newHeight + 'px';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                handle.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+        }
+
+        setupResizeHandle('memoryResizeHandle', 'memorySection', 'below');
+        setupResizeHandle('resizeHandle', 'bottomSection', 'above');
 
         traceInput.addEventListener('input', () => {
             hideError();
