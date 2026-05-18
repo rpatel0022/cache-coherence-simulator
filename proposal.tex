@@ -1,0 +1,96 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{parskip}
+
+\titlespacing*{\section}{0pt}{10pt}{4pt}
+\titlespacing*{\subsection}{0pt}{6pt}{2pt}
+
+\title{\vspace{-1.5cm}\textbf{CS 213 Project Proposal: Interactive Cache Coherence Protocol Simulator}\vspace{-0.3cm}}
+\author{Rushi Patel \\ CS 213 -- Multiprocessor Architecture and Programming \\ Instructor: Prof.\ Bingyao Li}
+\date{April 26, 2026}
+
+\begin{document}
+\maketitle
+
+\section{Introduction and Background}
+
+In shared-memory multiprocessor systems, multiple cores can cache the same data. If one core writes to a cached block while other cores still hold old copies, the system becomes inconsistent. Snooping-based coherence protocols like MSI, MESI, and MOESI handle this by assigning per-block states and coordinating access through bus transactions.
+
+The state transition rules for these protocols are covered extensively in lecture, but it is hard to build intuition for \textit{when} one protocol actually outperforms another. MESI's Exclusive state saves bus traffic on private data, and MOESI's Owned state avoids memory writebacks when sharing modified blocks. These differences only become obvious when you can watch the protocols run on the same trace and compare the resulting bus activity.
+
+This project is an \textbf{interactive, browser-based cache coherence protocol simulator} that visualizes and compares MSI, MESI, and MOESI execution on user-provided traces.
+
+\section{Project Goal and Scope}
+
+The simulator is meant to work as a learning tool and a way to quantitatively compare snooping-based coherence protocols. It will:
+
+\begin{enumerate}[nosep]
+    \item Simulate MSI, MESI, and MOESI with correct state transitions and bus behavior (write-invalidate, snooping-based).
+    \item Show step-by-step execution, displaying each processor's cache state, bus messages, and memory state after every operation.
+    \item Run the same memory access trace through all three protocols at once and show live performance statistics side by side.
+    \item Track total bus messages, invalidation count, and writeback count per protocol.
+\end{enumerate}
+
+The simulator supports 2--4 configurable processors and accepts both pre-loaded example traces and custom user-input traces. Directory-based coherence, write-update protocols, multi-level caches, and cache replacement policies are out of scope.
+
+The main question I want to answer is: \textit{under what workload patterns do MESI and MOESI actually reduce bus traffic compared to MSI, and by how much?}
+
+\section{Approach}
+
+The simulator is a single-page web application built in plain HTML, CSS, and JavaScript with no backend and no external libraries. You just open \texttt{index.html} in a browser.
+
+There are three main components:
+
+\begin{itemize}[nosep]
+    \item \textbf{Simulation engine} -- separate state machine implementations for MSI, MESI, and MOESI. Each protocol module handles CPU-side requests (read/write) and snooped bus events (BusRd, BusRdX, BusUpgr, Flush). The engine processes one trace operation at a time and records all bus transactions and state changes.
+    \item \textbf{Trace parser} -- takes text-format memory access traces (e.g., \texttt{P0 Read X}, \texttt{P1 Write X 5}), validates them, and feeds them to the engine. The processor count and address space are configurable.
+    \item \textbf{UI layer} -- a color-coded cache state grid for each processor, a scrollable bus transaction log, a stats dashboard with running totals, and a comparison view with bar charts.
+\end{itemize}
+
+Users can step through one operation at a time to see exactly which transitions and bus messages fire, or use auto-run to execute a full trace.
+
+\section{Platform and Tools}
+
+\begin{itemize}[nosep]
+    \item \textbf{Language:} JavaScript (ES6+), HTML5, CSS3
+    \item \textbf{Platform:} Any modern web browser (Chrome, Firefox, Safari, Edge)
+    \item \textbf{Dependencies:} None (plain JS, no frameworks)
+    \item \textbf{Development environment:} VS Code on macOS
+\end{itemize}
+
+No special hardware is needed. Everything runs client-side in the browser.
+
+\section{Evaluation Plan}
+
+I plan to run five traces through all three protocols and compare the resulting metrics:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Trace Scenario} & \textbf{Operations} & \textbf{Purpose} \\
+\midrule
+Basic read/write sharing & 5 & Baseline behavior across all protocols \\
+Single reader then writer & 2 & Demonstrates MESI's silent E$\to$M upgrade \\
+Modified block shared & 3 & Demonstrates MOESI's M$\to$O transition \\
+3-processor contention & 5 & Measures bus traffic scaling under contention \\
+Private data, no sharing & 6 & Best case for MESI's Exclusive state \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For each trace, I will compare three metrics across the protocols:
+\begin{enumerate}[nosep]
+    \item \textbf{Total bus messages} -- how much communication each protocol generates
+    \item \textbf{Invalidation count} -- shows where MESI's E-state helps on private data
+    \item \textbf{Writeback count} -- shows where MOESI's O-state saves memory writebacks
+\end{enumerate}
+
+I will present the results as bar charts and discuss which workload patterns favor which protocol (e.g., private-data-heavy workloads should favor MESI, sharing-heavy workloads should favor MOESI). To verify correctness, I will manually trace each scenario by hand and check that the simulator output matches the expected state transitions from lecture.
+
+\end{document}

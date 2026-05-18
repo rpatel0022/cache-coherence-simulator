@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache Coherence Protocol Simulator</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1><span>Cache Coherence</span> Protocol Simulator</h1>
+        <div class="controls-bar">
+            <select id="protocolSelect" title="Protocol">
+                <option value="MSI">MSI</option>
+                <option value="MESI">MESI</option>
+                <option value="MOESI">MOESI</option>
+            </select>
+            <select id="procCountSelect" title="Processor Count">
+                <option value="2">2 Processors</option>
+                <option value="3">3 Processors</option>
+                <option value="4">4 Processors</option>
+            </select>
+            <button id="stepBtn" class="btn-primary" title="Execute one step">Step</button>
+            <button id="runBtn" class="btn-success" title="Auto-run all steps">Run</button>
+            <button id="resetBtn" title="Reset simulation">Reset</button>
+            <div class="speed-control">
+                <span class="speed-label">Slow</span>
+                <input type="range" id="speedSlider" min="100" max="2000" value="800" step="100">
+                <span class="speed-label">Fast</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Left: Trace Input -->
+        <div class="trace-panel">
+            <h3>Trace Input</h3>
+            <select id="traceSelect" class="trace-select">
+                <option value="">— Select Example —</option>
+            </select>
+            <textarea id="traceInput" class="trace-textarea" placeholder="Enter trace (one per line):&#10;P0 R X&#10;P1 W X 5&#10;&#10;# Comments start with #"></textarea>
+            <div id="traceDisplay" class="trace-display hidden"></div>
+            <div id="traceError" class="trace-error"></div>
+        </div>
+
+        <!-- Right: Simulation -->
+        <div class="sim-panel">
+            <!-- Mode Tabs -->
+            <div class="mode-tabs">
+                <button class="mode-tab active" data-mode="single">Single Protocol</button>
+                <button class="mode-tab" data-mode="compare">Compare All</button>
+            </div>
+
+            <!-- Step Banner -->
+            <div id="stepBanner" class="step-banner">
+                <span class="step-label">Ready</span>
+                <span>Load a trace and click Step or Run</span>
+            </div>
+
+            <!-- Single Protocol View -->
+            <div id="singleView" class="single-view">
+                <div class="cache-section">
+                    <h3>Cache States</h3>
+                    <div id="cacheGrid" class="cache-grid"></div>
+                </div>
+                <div class="memory-section">
+                    <h3>Memory</h3>
+                    <div id="memoryGrid" class="memory-grid"></div>
+                </div>
+                <div class="bottom-section">
+                    <div class="bus-log">
+                        <h3>Bus Log</h3>
+                        <div id="busLog" class="bus-log-entries"></div>
+                    </div>
+                    <div class="stats-panel">
+                        <h3>Statistics</h3>
+                        <div class="stat-item">
+                            <span class="stat-label">Bus Messages</span>
+                            <span id="statBus" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Invalidations</span>
+                            <span id="statInv" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Writebacks</span>
+                            <span id="statWb" class="stat-value">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compare View -->
+            <div id="compareView" class="compare-view hidden">
+                <div class="compare-grid">
+                    <div class="compare-column" id="compareMSI">
+                        <h3 class="msi">MSI</h3>
+                        <div class="compare-cache-grid"></div>
+                        <div class="compare-stats"></div>
+                    </div>
+                    <div class="compare-column" id="compareMESI">
+                        <h3 class="mesi">MESI</h3>
+                        <div class="compare-cache-grid"></div>
+                        <div class="compare-stats"></div>
+                    </div>
+                    <div class="compare-column" id="compareMOESI">
+                        <h3 class="moesi">MOESI</h3>
+                        <div class="compare-cache-grid"></div>
+                        <div class="compare-stats"></div>
+                    </div>
+                </div>
+                <div class="compare-summary">
+                    <h3>Protocol Comparison — Bus Traffic</h3>
+                    <div id="barChart" class="bar-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts (order matters — base first) -->
+    <script src="js/metrics.js"></script>
+    <script src="js/protocols/base-protocol.js"></script>
+    <script src="js/protocols/msi.js"></script>
+    <script src="js/protocols/mesi.js"></script>
+    <script src="js/protocols/moesi.js"></script>
+    <script src="js/trace-parser.js"></script>
+    <script src="js/simulator.js"></script>
+    <script src="js/traces.js"></script>
+    <script src="js/ui.js"></script>
+</body>
+</html>
