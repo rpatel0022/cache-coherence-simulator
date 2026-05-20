@@ -19,11 +19,11 @@
 \section{Problem Statement and Motivation}
 % ============================================================
 
-Cache coherence is a fundamental challenge in shared-memory multiprocessor systems. When multiple processors maintain private caches over a shared address space, a coherence protocol must ensure that all processors observe a consistent view of memory. The three most widely studied snooping-based protocols---MSI, MESI, and MOESI---each make different design tradeoffs between bus traffic, memory writebacks, and implementation complexity.
+Cache coherence is a fundamental challenge in shared-memory multiprocessor systems~\cite{sorin2011primer}. When multiple processors maintain private caches over a shared address space, a coherence protocol must ensure that all processors observe a consistent view of memory. The three most widely studied snooping-based protocols---MSI, MESI~\cite{papamarcos1984mesi}, and MOESI~\cite{sweazey1986moesi}---each make different design tradeoffs between bus traffic, memory writebacks, and implementation complexity.
 
 Despite their importance, these protocols are difficult to reason about from state transition diagrams alone. Students and practitioners must mentally simulate sequences of reads and writes across multiple processors, tracking state changes, bus messages, and data flow simultaneously. This cognitive burden makes it hard to build intuition for \emph{why} one protocol outperforms another in specific access patterns.
 
-This project addresses that gap by building an \textbf{interactive, browser-based cache coherence simulator} that lets users step through memory traces operation-by-operation, observe state transitions in real time, and directly compare MSI, MESI, and MOESI side-by-side with quantitative metrics.
+This project addresses that gap by building an \textbf{interactive, browser-based cache coherence simulator} that lets users step through memory traces operation-by-operation, observe state transitions in real time, and directly compare MSI, MESI, and MOESI side-by-side with quantitative metrics. Beyond visualization, we use the simulator to run a parametric study that characterizes \emph{when} and \emph{by how much} each protocol's optimizations matter as a function of workload sharing ratio.
 
 % ============================================================
 \section{Background}
@@ -31,11 +31,15 @@ This project addresses that gap by building an \textbf{interactive, browser-base
 
 \subsection{Snooping-Based Coherence}
 
-In a snooping protocol, all caches monitor (snoop) a shared bus. When a processor issues a memory operation that misses in its cache or requires exclusive access, it places a bus message (e.g., \texttt{BusRd}, \texttt{BusRdX}, \texttt{BusUpgr}) that other caches observe and react to by updating their local state. Correctness relies on the bus imposing a total order on all transactions, ensuring write serialization---every processor observes writes to the same block in the same order. Combined with the single-writer/multiple-reader (SWMR) invariant, this guarantees coherence.
+In a snooping protocol, all caches monitor (snoop) a shared bus~\cite{stenstrom1990survey}. When a processor issues a memory operation that misses in its cache or requires exclusive access, it places a bus message (e.g., \texttt{BusRd}, \texttt{BusRdX}, \texttt{BusUpgr}) that other caches observe and react to by updating their local state. Correctness relies on the bus imposing a total order on all transactions, ensuring write serialization---every processor observes writes to the same block in the same order. Combined with the single-writer/multiple-reader (SWMR) invariant~\cite{sorin2011primer}, this guarantees coherence: at any point in time, either a single processor has read-write access to a block, or multiple processors have read-only access, but never both.
+
+A key architectural implication is that simultaneous requests (e.g., two processors issuing \texttt{BusRdX} for the same block) are resolved by bus arbitration, which serializes them into a total order. This serialization is what makes snooping protocols simple but also fundamentally unscalable---every transaction must be visible to every cache, limiting the protocol to bus-based systems with moderate processor counts.
 
 \subsection{Protocol Overview}
 
-\textbf{MSI} is the baseline protocol with three states: Modified (M), Shared (S), and Invalid (I). Every read miss transitions to S, requiring a \texttt{BusUpgr} on any subsequent write. \textbf{MESI} adds the Exclusive (E) state, which represents a clean, sole copy. A processor that reads a block with no other sharers enters E, allowing a silent upgrade to M on write with zero bus traffic. \textbf{MOESI} further adds the Owned (O) state: when a modified block is read by another processor, the original holder transitions to O (retaining dirty responsibility) instead of writing back to memory, eliminating the writeback entirely.
+\textbf{MSI} is the baseline write-invalidate protocol with three states: Modified (M), Shared (S), and Invalid (I). Every read miss transitions to S, requiring a \texttt{BusUpgr} on any subsequent write. \textbf{MESI}~\cite{papamarcos1984mesi} adds the Exclusive (E) state, representing a clean, sole copy. A processor that reads a block with no other sharers enters E, allowing a silent upgrade to M on write with zero bus traffic. The E state requires hardware support: a shared-line signal on the bus that indicates whether other caches hold a copy. \textbf{MOESI}~\cite{sweazey1986moesi} further adds the Owned (O) state: when a modified block is read by another processor, the original holder transitions to O (retaining dirty responsibility and supplying data via cache-to-cache transfer) instead of writing back to memory.
+
+A related variant is Intel's \textbf{MESIF} protocol, which adds a Forward (F) state. Like O, the F state designates a single cache to supply data on shared reads, but F applies to \emph{clean} blocks---avoiding redundant memory responses when multiple caches hold Shared copies. MESIF is designed for point-to-point interconnects rather than shared buses, and is outside the scope of this simulator.
 
 % ============================================================
 \section{Approach and Implementation}
@@ -49,18 +53,14 @@ The simulator is implemented as a client-side web application in JavaScript, HTM
   \item \textbf{Protocol layer}: A \texttt{BaseProtocol} class defines the snooping interface. \texttt{MSIProtocol}, \texttt{MESIProtocol}, and \texttt{MOESIProtocol} each implement \texttt{handleCpuRequest()}, encoding the full state machine for that protocol including bus message generation and snoop responses.
   \item \textbf{Simulator core}: The \texttt{Simulator} class manages per-processor caches, shared memory, and a \texttt{Metrics} tracker. It orchestrates each step: applying the requesting processor's transition, broadcasting snoop results to other caches, updating data values, and recording a full snapshot.
   \item \textbf{Trace parser}: Accepts a simple text format (\texttt{P0 R X}, \texttt{P1 W X 5}) with validation, comments, and error reporting.
-  \item \textbf{UI layer}: Renders cache state grids, a bus log, step history table, and statistics panel. Supports step-by-step execution, auto-run with adjustable speed, and draggable panel resizing.
+  \item \textbf{UI layer}: Renders cache state grids, a bus log, step history table, and statistics panel with step-by-step execution, auto-run with adjustable speed, and a side-by-side protocol comparison mode.
 \end{itemize}
 
-\subsection{Key Features}
+\subsection{Implementation Decisions}
 
-\begin{itemize}[nosep]
-  \item \textbf{Single-protocol mode}: Step through a trace viewing per-processor cache states, bus messages, and memory values at each step.
-  \item \textbf{Compare mode}: Run the same trace simultaneously on all three protocols, displaying side-by-side cache states and a bar chart of bus traffic, invalidations, and writebacks.
-  \item \textbf{Configurable processors}: Support for 2, 3, or 4 processors.
-  \item \textbf{Preset traces}: Six traces from course lectures and homework, plus a free-form text input for custom traces.
-  \item \textbf{Correctness}: Validated by an automated test suite of 47 tests covering all state transitions, bus messages, snoop behavior, and data value propagation for all three protocols.
-\end{itemize}
+One non-obvious decision arose in the MOESI protocol when handling a \texttt{BusRdX} (write miss) directed at a block held in M state by another cache. The M holder must relinquish the block (M$\to$I) and supply data to the requester via cache-to-cache transfer. Critically, no writeback to memory is needed here: the dirty value transfers directly to the new M holder, who becomes responsible for eventually writing it back. Memory remains stale, but the SWMR invariant is maintained because exactly one cache holds the block in M at all times. This decision is correct for our model (unlimited cache, no eviction), but in a real system with finite caches, an eviction of the new M holder before writeback would require a memory update.
+
+The simulator was validated by an automated test suite of 50 tests covering all state transitions, bus messages, snoop behavior, and data value propagation for all three protocols.
 
 \begin{figure*}[!bp]
 \centering
@@ -73,29 +73,25 @@ The simulator is implemented as a client-side web application in JavaScript, HTM
 \section{Experimental Methodology}
 % ============================================================
 
-To quantitatively compare the three protocols, we designed six trace microbenchmarks, each isolating a specific access pattern that highlights a protocol-level difference (Table~\ref{tab:traces}). These traces are intentionally small to allow step-by-step verification against hand-derived state transitions from lecture, while still being large enough to expose the key behavioral differences between protocols. Each trace was executed on all three protocols using the simulator's core engine. We recorded three metrics:
+We conducted two sets of experiments. First, six hand-crafted microbenchmarks (Table~\ref{tab:traces}) isolate specific protocol mechanisms and serve as correctness checks against hand-derived state transitions from CS~213 Lecture~04~\cite{cs213lecture04}. Second, a \textbf{parametric sweep} over sharing ratio (0\%--100\%) with 500-operation randomly generated traces (4 processors, 8 blocks, 50/50 read/write mix, averaged over 5 runs) characterizes how protocol advantages scale with workload properties.
 
-\begin{itemize}[nosep]
-  \item \textbf{Bus traffic}: Total number of bus messages (BusRd, BusRdX, BusUpgr, and flushes).
-  \item \textbf{Invalidations}: Number of times a cache line was invalidated due to another processor's write.
-  \item \textbf{Writebacks}: Number of dirty-line writebacks to main memory.
-\end{itemize}
+We define the \textbf{bus traffic} metric as follows: each bus request (\texttt{BusRd}, \texttt{BusRdX}, or \texttt{BusUpgr}) counts as one message, and each data supply response (whether from memory or cache-to-cache transfer) counts as one additional message. Thus a read miss that fetches data counts as 2 messages (request + response), while a \texttt{BusUpgr} counts as 1 (no data transfer). \textbf{Invalidations} count the number of cache lines invalidated by another processor's write. \textbf{Writebacks} count dirty-line writebacks to main memory.
 
 \begin{table}[h]
 \centering
-\caption{Trace workloads used for evaluation.}
+\caption{Microbenchmark traces for correctness validation.}
 \label{tab:traces}
 \small
-\begin{tabular}{@{}lcc@{}}
+\begin{tabular}{@{}lccl@{}}
 \toprule
-\textbf{Trace} & \textbf{Procs} & \textbf{Ops} \\
+\textbf{Trace} & \textbf{Procs} & \textbf{Ops} & \textbf{Tests} \\
 \midrule
-Basic MSI (Lecture 04) & 2 & 5 \\
-MESI Silent Upgrade & 1 & 2 \\
-MOESI No Writeback & 2 & 3 \\
-3-Proc Contention & 3 & 5 \\
-SMT Cacheline Sharing & 4 & 9 \\
-Private Data & 3 & 6 \\
+Basic MSI (L04) & 2 & 5 & Baseline transitions \\
+Silent Upgrade & 1 & 2 & E$\to$M (no bus) \\
+No Writeback & 2 & 3 & M$\to$O (no WB) \\
+3-Proc Contention & 3 & 5 & Invalidation cascades \\
+SMT Sharing & 4 & 9 & Multi-block sharing \\
+Private Data & 3 & 6 & E-state allocation \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -104,18 +100,13 @@ Private Data & 3 & 6 \\
 \section{Results and Analysis}
 % ============================================================
 
-Figure~\ref{fig:compare} shows the compare mode output for the SMT trace, and Table~\ref{tab:results} presents the full comparison across all traces and protocols.
+\subsection{Microbenchmark Validation}
 
-\begin{figure*}[!bp]
-\centering
-\includegraphics[width=\textwidth]{figures/compare-view.png}
-\caption{Compare mode running the SMT Cacheline Sharing trace on all three protocols simultaneously. The bar chart highlights MOESI's elimination of writebacks (0 vs.\ 3, a 100\% reduction) and MESI/MOESI's 8\% bus traffic reduction over MSI.}
-\label{fig:compare}
-\end{figure*}
+Table~\ref{tab:results} confirms that the simulator produces the expected results for each microbenchmark. All state transitions were verified against hand-traced solutions from lecture.
 
 \begin{table}[h]
 \centering
-\caption{Protocol comparison: bus traffic / invalidations / writebacks.}
+\caption{Microbenchmark results: bus traffic / invalidations / writebacks.}
 \label{tab:results}
 \small
 \begin{tabular}{@{}lccc@{}}
@@ -132,45 +123,91 @@ Private Data     & 9 / 0 / 0 & 6 / 0 / 0 & 6 / 0 / 0 \\
 \end{tabular}
 \end{table}
 
-\subsection{MESI Reduces Bus Traffic for Private Data}
+The \emph{Silent Upgrade} trace demonstrates the E$\to$M mechanism: MSI produces 3 bus messages (BusRd request + data response + BusUpgr) while MESI produces 2 (BusRd request + data response, then silent E$\to$M). The \emph{Private Data} trace shows a 33\% bus traffic reduction (9 $\to$ 6) under MESI, arising from 3 read-write pairs each saving one \texttt{BusUpgr}.
 
-The most dramatic difference between MSI and MESI appears in the \emph{Private Data} trace, where each processor reads and writes its own block with no sharing. MSI generates 9 bus messages because every read enters S, requiring a \texttt{BusUpgr} on the subsequent write. MESI detects that the block has no other sharers, places it in E, and silently upgrades to M---\textbf{reducing bus traffic by 33\%} (9 $\to$ 6). The reduction follows directly from the 3 read-write pairs in the trace: each pair saves one \texttt{BusUpgr} in MESI (the E$\to$M upgrade is silent), for a total of 3 fewer messages out of 9. This pattern is common in real workloads where threads operate on thread-local data.
+Invalidation counts are identical across all three protocols for every trace, confirming the theoretical expectation: invalidations are a property of the write-invalidate approach, not of the specific state encoding. This serves as a correctness check on the implementation.
 
-The \emph{Silent Upgrade} trace isolates this mechanism: a single processor reads then writes. MSI needs 3 bus messages (BusRd + BusUpgr + the read response), while MESI needs only 2 (BusRd + response, then silent E$\to$M).
+\subsection{Parametric Study: Effect of Sharing Ratio}
 
-\subsection{MOESI Eliminates Writebacks}
+Table~\ref{tab:parametric} presents the parametric sweep results. Two clear trends emerge.
 
-Across \textbf{all six traces}, MOESI produces \textbf{zero writebacks}, compared to MSI and MESI which generate 1--3 writebacks depending on the workload. This is the direct benefit of the Owned state: when a modified block is read by another processor, the holder transitions M$\to$O and supplies data via cache-to-cache transfer, avoiding the memory writeback entirely.
+\begin{table}[h]
+\centering
+\caption{Parametric sweep: 500 ops, 4 procs, 8 blocks, 50\% reads. Bus traffic (B), invalidations (I), writebacks (W). MESI $\Delta$: bus reduction vs.\ MSI.}
+\label{tab:parametric}
+\small
+\begin{tabular}{@{}rcccc@{}}
+\toprule
+\textbf{Sharing} & \textbf{MSI} & \textbf{MESI} & \textbf{MOESI} & \textbf{MESI $\Delta$} \\
+ & B/I/W & B/I/W & B/I/W & Bus \\
+\midrule
+0\%   & 20/0/0     & 16/0/0     & 16/0/0     & $-$20.0\% \\
+20\%  & 162/54/39  & 157/54/39  & 157/54/0   & $-$3.1\% \\
+40\%  & 277/105/77 & 272/105/77 & 272/105/0  & $-$1.8\% \\
+60\%  & 439/179/133 & 434/179/133 & 434/179/0 & $-$1.1\% \\
+80\%  & 565/235/166 & 561/235/166 & 561/235/0 & $-$0.7\% \\
+100\% & 681/297/214 & 681/297/214 & 681/297/0 & 0.0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The effect is most pronounced in the \emph{SMT Cacheline Sharing} trace (a 4-core workload with 9 operations), where MSI and MESI produce 3 writebacks while MOESI produces 0---a significant reduction in memory bus bandwidth consumption. We note that this zero-writeback result represents an upper bound: our simulator has unlimited cache capacity and no replacement policy, so eviction-triggered writebacks (O$\to$I with writeback to memory) never occur. In real systems with finite caches, MOESI's writeback savings would be partially offset by eviction traffic under high cache pressure.
+\textbf{MESI's bus advantage diminishes with sharing.} At 0\% sharing (fully private data), MESI reduces bus traffic by 20\% over MSI. As the sharing ratio increases, this advantage shrinks monotonically: 3.1\% at 20\%, 1.1\% at 60\%, and \textbf{vanishes entirely at 100\% sharing}. This is because the E state is only allocated when no other cache holds the block. As sharing increases, more reads find other sharers present, forcing the block into S instead of E and requiring a \texttt{BusUpgr} on subsequent writes --- exactly as MSI would. This quantifies a result that is qualitatively known but rarely measured: MESI's Exclusive optimization is \emph{only} effective for private-data access patterns.
 
-\subsection{Invalidation Counts are Protocol-Independent}
+\textbf{MOESI eliminates 100\% of writebacks at all sharing ratios.} Regardless of workload, MOESI produces zero writebacks while MSI and MESI produce writebacks that scale linearly with sharing (0 at 0\% sharing to 214 at 100\%). This confirms that the Owned state's benefit is orthogonal to sharing ratio: whenever a dirty block is read by another processor, the O state avoids the writeback regardless of how many shared accesses exist. As noted earlier, this is an upper bound --- real caches with eviction would trigger O$\to$I writebacks under cache pressure.
 
-Invalidations are identical across all three protocols for every trace. This is expected: invalidations are driven by write operations to shared blocks, and all three protocols must invalidate other sharers on a write. The Exclusive and Owned states optimize \emph{how} data is obtained and \emph{whether} writebacks occur, but they do not change \emph{when} invalidations are necessary.
+\begin{figure*}[!bp]
+\centering
+\includegraphics[width=\textwidth]{figures/compare-view.png}
+\caption{Compare mode running the SMT Cacheline Sharing trace on all three protocols simultaneously. The bar chart highlights MOESI's elimination of writebacks (0 vs.\ 3, a 100\% reduction) and MESI/MOESI's 8\% bus traffic reduction over MSI.}
+\label{fig:compare}
+\end{figure*}
 
 \subsection{Discussion}
 
-The results confirm the theoretical expectations from the protocol designs:
-
-\begin{enumerate}[nosep]
-  \item MESI's E state is a pure optimization for the private-data case, with no downside in shared scenarios (it never performs worse than MSI).
-  \item MOESI's O state is a pure optimization for the shared-read-after-write case, eliminating writebacks without increasing bus traffic or invalidations.
-  \item The protocols form a strict hierarchy: MSI $\leq$ MESI $\leq$ MOESI in terms of efficiency, which explains why modern processors (e.g., AMD) use MOESI and Intel uses a MESIF variant.
-\end{enumerate}
+The parametric results reveal a nuance not visible in small traces: the strict hierarchy MSI $\leq$ MESI $\leq$ MOESI holds across all sharing ratios, but the \emph{magnitude} of the gap varies dramatically. MESI's advantage is concentrated in private-data workloads and effectively disappears under heavy sharing, while MOESI's writeback elimination is uniformly beneficial. This explains the design choices of real processors: AMD uses MOESI~\cite{sweazey1986moesi} for its writeback savings across all workloads, while Intel adopted MESIF for efficient data forwarding on point-to-point interconnects where a designated supplier reduces redundant memory traffic.
 
 % ============================================================
 \section{Conclusion and Lessons Learned}
 % ============================================================
 
-We built an interactive cache coherence protocol simulator that visualizes MSI, MESI, and MOESI side-by-side with quantitative metrics. Our experimental comparison across six trace workloads confirms that MESI reduces bus traffic by up to 33\% for private-data patterns through silent E$\to$M upgrades, and MOESI eliminates all memory writebacks through the Owned state's cache-to-cache transfers.
+We built an interactive cache coherence protocol simulator and used it to conduct a parametric study across sharing ratios from 0\% to 100\%. The study quantifies two key findings: (1)~MESI's bus traffic advantage over MSI ranges from 20\% (fully private data) to 0\% (fully shared), diminishing monotonically with sharing ratio; (2)~MOESI eliminates 100\% of writebacks regardless of sharing ratio, though this is an upper bound due to our unlimited-cache model.
 
 \textbf{Lessons learned:}
 \begin{itemize}[nosep]
-  \item Implementing the full state machines revealed subtleties not apparent from diagrams alone---particularly around data value propagation (which cache supplies data?) and the interaction between snoop responses and the requesting processor's transition.
-  \item The compare mode proved valuable for building intuition: seeing the same trace produce different writeback counts across protocols makes the benefit of each additional state immediately concrete.
-  \item A correctness test suite was essential. Several early bugs (e.g., incorrect BusRdX vs.\ BusUpgr selection, missing writeback on M$\to$I transitions) were only caught by systematic testing of all state$\times$operation combinations.
+  \item Implementing the full state machines revealed subtleties not apparent from diagrams---particularly the MOESI \texttt{BusRdX} handling where a dirty block transfers cache-to-cache without a memory writeback, requiring careful reasoning about which cache holds the SWMR write permission at each step.
+  \item The parametric sweep was more informative than hand-crafted traces: seeing MESI's advantage \emph{continuously} diminish from 20\% to 0\% across sharing ratios provided a quantitative understanding that individual traces could not.
+  \item A 50-test correctness suite was essential. Several early bugs (e.g., incorrect \texttt{BusRdX} vs.\ \texttt{BusUpgr} selection, missing writeback on M$\to$I transitions) were only caught by systematic testing of all state$\times$operation combinations.
 \end{itemize}
 
-\textbf{Limitations and future work:} The simulator models a simplified single-level cache with unlimited capacity and no replacement policy. Extending it with set-associative caches, LRU eviction, and directory-based protocols would bring it closer to real hardware behavior. Adding support for memory consistency models (TSO, relaxed) and fence instructions would further deepen its educational value.
+\textbf{Limitations and future work:} The simulator models a simplified single-level cache with unlimited capacity and no replacement policy. Extending it with set-associative caches and LRU eviction would allow studying the interaction between eviction-triggered writebacks and the O state's benefits. Adding directory-based protocols would address the scalability limitation of snooping, and incorporating memory consistency models (TSO, relaxed) would connect coherence to the broader memory system.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+
+\bibitem{papamarcos1984mesi}
+M.~S. Papamarcos and J.~H. Patel,
+``A low-overhead coherence solution for multiprocessors with private cache memories,''
+in \emph{Proc.\ 11th Annual International Symposium on Computer Architecture (ISCA)}, pp.~348--354, 1984.
+
+\bibitem{sweazey1986moesi}
+P.~Sweazey and A.~J. Smith,
+``A class of compatible cache consistency protocols and their support by the IEEE Futurebus,''
+in \emph{Proc.\ 13th Annual International Symposium on Computer Architecture (ISCA)}, pp.~414--423, 1986.
+
+\bibitem{sorin2011primer}
+D.~J. Sorin, M.~D. Hill, and D.~A. Wood,
+\emph{A Primer on Memory Consistency and Cache Coherence},
+Synthesis Lectures on Computer Architecture, Morgan \& Claypool, 2011.
+
+\bibitem{stenstrom1990survey}
+P.~Stenstr{\"o}m,
+``A survey of cache coherence schemes for multiprocessors,''
+\emph{Computer}, vol.~23, no.~6, pp.~12--24, 1990.
+
+\bibitem{cs213lecture04}
+B.~Li, ``Lecture 04: Cache Coherence,''
+CS~213 --- Multiprocessor Architecture and Programming, UC Riverside, Spring 2026.
+
+\end{thebibliography}
 
 \end{document}
