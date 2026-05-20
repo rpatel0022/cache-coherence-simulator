@@ -31,7 +31,7 @@ This project addresses that gap by building an \textbf{interactive, browser-base
 
 \subsection{Snooping-Based Coherence}
 
-In a snooping protocol, all caches monitor (snoop) a shared bus. When a processor issues a memory operation that misses in its cache or requires exclusive access, it places a bus message (e.g., \texttt{BusRd}, \texttt{BusRdX}, \texttt{BusUpgr}) that other caches observe and react to by updating their local state.
+In a snooping protocol, all caches monitor (snoop) a shared bus. When a processor issues a memory operation that misses in its cache or requires exclusive access, it places a bus message (e.g., \texttt{BusRd}, \texttt{BusRdX}, \texttt{BusUpgr}) that other caches observe and react to by updating their local state. Correctness relies on the bus imposing a total order on all transactions, ensuring write serialization---every processor observes writes to the same block in the same order. Combined with the single-writer/multiple-reader (SWMR) invariant, this guarantees coherence.
 
 \subsection{Protocol Overview}
 
@@ -73,7 +73,7 @@ The simulator is implemented as a client-side web application in JavaScript, HTM
 \section{Experimental Methodology}
 % ============================================================
 
-To quantitatively compare the three protocols, we designed six trace workloads that exercise different access patterns (Table~\ref{tab:traces}). Each trace was executed on all three protocols using the simulator's core engine. We recorded three metrics:
+To quantitatively compare the three protocols, we designed six trace microbenchmarks, each isolating a specific access pattern that highlights a protocol-level difference (Table~\ref{tab:traces}). These traces are intentionally small to allow step-by-step verification against hand-derived state transitions from lecture, while still being large enough to expose the key behavioral differences between protocols. Each trace was executed on all three protocols using the simulator's core engine. We recorded three metrics:
 
 \begin{itemize}[nosep]
   \item \textbf{Bus traffic}: Total number of bus messages (BusRd, BusRdX, BusUpgr, and flushes).
@@ -134,7 +134,7 @@ Private Data     & 9 / 0 / 0 & 6 / 0 / 0 & 6 / 0 / 0 \\
 
 \subsection{MESI Reduces Bus Traffic for Private Data}
 
-The most dramatic difference between MSI and MESI appears in the \emph{Private Data} trace, where each processor reads and writes its own block with no sharing. MSI generates 9 bus messages because every read enters S, requiring a \texttt{BusUpgr} on the subsequent write. MESI detects that the block has no other sharers, places it in E, and silently upgrades to M---\textbf{reducing bus traffic by 33\%} (9 $\to$ 6). This pattern is common in real workloads where threads operate on thread-local data.
+The most dramatic difference between MSI and MESI appears in the \emph{Private Data} trace, where each processor reads and writes its own block with no sharing. MSI generates 9 bus messages because every read enters S, requiring a \texttt{BusUpgr} on the subsequent write. MESI detects that the block has no other sharers, places it in E, and silently upgrades to M---\textbf{reducing bus traffic by 33\%} (9 $\to$ 6). The reduction follows directly from the 3 read-write pairs in the trace: each pair saves one \texttt{BusUpgr} in MESI (the E$\to$M upgrade is silent), for a total of 3 fewer messages out of 9. This pattern is common in real workloads where threads operate on thread-local data.
 
 The \emph{Silent Upgrade} trace isolates this mechanism: a single processor reads then writes. MSI needs 3 bus messages (BusRd + BusUpgr + the read response), while MESI needs only 2 (BusRd + response, then silent E$\to$M).
 
@@ -142,7 +142,7 @@ The \emph{Silent Upgrade} trace isolates this mechanism: a single processor read
 
 Across \textbf{all six traces}, MOESI produces \textbf{zero writebacks}, compared to MSI and MESI which generate 1--3 writebacks depending on the workload. This is the direct benefit of the Owned state: when a modified block is read by another processor, the holder transitions M$\to$O and supplies data via cache-to-cache transfer, avoiding the memory writeback entirely.
 
-The effect is most pronounced in the \emph{SMT Cacheline Sharing} trace (a 4-core workload with 9 operations), where MSI and MESI produce 3 writebacks while MOESI produces 0---a significant reduction in memory bus bandwidth consumption.
+The effect is most pronounced in the \emph{SMT Cacheline Sharing} trace (a 4-core workload with 9 operations), where MSI and MESI produce 3 writebacks while MOESI produces 0---a significant reduction in memory bus bandwidth consumption. We note that this zero-writeback result represents an upper bound: our simulator has unlimited cache capacity and no replacement policy, so eviction-triggered writebacks (O$\to$I with writeback to memory) never occur. In real systems with finite caches, MOESI's writeback savings would be partially offset by eviction traffic under high cache pressure.
 
 \subsection{Invalidation Counts are Protocol-Independent}
 
