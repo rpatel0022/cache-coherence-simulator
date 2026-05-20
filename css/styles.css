@@ -211,15 +211,22 @@ button:active {
 /* Single protocol view */
 .single-view {
     flex: 1;
-    display: grid;
-    grid-template-rows: auto auto auto 1fr auto;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 /* Cache State Grid */
 .cache-section {
-    padding: 16px;
-    overflow: auto;
+    padding: 12px 16px;
+    flex-shrink: 0;
+}
+
+.cache-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
 }
 
 .cache-section h3 {
@@ -227,7 +234,31 @@ button:active {
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 12px;
+    margin-bottom: 0;
+}
+
+/* Memory inline with cache header */
+.memory-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.memory-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+/* Detail columns — history left, bus+stats right */
+.detail-columns {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    overflow: hidden;
+    border-top: 1px solid var(--border);
 }
 
 .cache-grid {
@@ -283,39 +314,28 @@ button:active {
     transform: scale(1.1);
 }
 
-/* Memory Panel */
-.memory-section {
-    padding: 0 16px 12px;
-    overflow: hidden;
-}
-
-.memory-section h3 {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-}
-
+/* Memory Grid (inline) */
 .memory-grid {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .memory-item {
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px 14px;
+    border-radius: 4px;
+    padding: 3px 10px;
     font-family: monospace;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 /* Step History Table */
 .history-section {
-    padding: 0 16px 12px;
-    overflow: auto;
+    padding: 12px 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .history-section h3 {
@@ -324,12 +344,12 @@ button:active {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 8px;
+    flex-shrink: 0;
 }
 
 .history-table-wrap {
-    overflow-x: auto;
-    max-height: 350px;
-    overflow-y: auto;
+    overflow: auto;
+    flex: 1;
 }
 
 .history-table {
@@ -420,19 +440,18 @@ button:active {
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
-/* Bottom section — Bus log + Stats */
-.bottom-section {
-    display: grid;
-    grid-template-columns: 1fr 280px;
-    height: 200px;
-    min-height: 0;
+/* Right column — Bus log + Stats */
+.right-column {
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
+    border-left: 1px solid var(--border);
 }
 
 .bus-log {
     padding: 12px 16px;
     overflow-y: auto;
-    border-right: 1px solid var(--border);
+    flex: 1;
 }
 
 .bus-log h3 {
@@ -443,37 +462,9 @@ button:active {
     margin-bottom: 8px;
 }
 
-/* Resize handle */
+/* Resize handle (kept for backward compat, hidden in new layout) */
 .resize-handle {
-    height: 5px;
-    background: var(--border);
-    cursor: ns-resize;
-    position: relative;
-    flex-shrink: 0;
-}
-
-.resize-handle:hover,
-.resize-handle.dragging {
-    background: var(--accent);
-}
-
-.resize-handle::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: 30px;
-    height: 3px;
-    border-top: 1px solid var(--text-muted);
-    border-bottom: 1px solid var(--text-muted);
-    opacity: 0.5;
-}
-
-.resize-handle:hover::after,
-.resize-handle.dragging::after {
-    border-color: white;
-    opacity: 0.8;
+    display: none;
 }
 
 .bus-log-entries {
@@ -506,7 +497,9 @@ button:active {
     padding: 12px 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
 }
 
 .stats-panel h3 {
@@ -689,8 +682,12 @@ button:active {
     .trace-panel {
         max-height: 200px;
     }
-    .bottom-section {
+    .detail-columns {
         grid-template-columns: 1fr;
+    }
+    .right-column {
+        border-left: none;
+        border-top: 1px solid var(--border);
     }
     .compare-grid {
         grid-template-columns: 1fr;

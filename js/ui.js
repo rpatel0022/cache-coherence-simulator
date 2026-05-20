@@ -517,43 +517,6 @@
         protocolSelect.addEventListener('change', resetSimulation);
         procCountSelect.addEventListener('change', resetSimulation);
 
-        // Drag-to-resize panels
-        function setupResizeHandle(handleId, targetId, direction) {
-            const handle = document.getElementById(handleId);
-            const target = document.getElementById(targetId);
-            let dragging = false;
-            let startY, startHeight;
-
-            handle.addEventListener('mousedown', (e) => {
-                dragging = true;
-                startY = e.clientY;
-                startHeight = target.offsetHeight;
-                handle.classList.add('dragging');
-                document.body.style.cursor = 'ns-resize';
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
-
-            document.addEventListener('mousemove', (e) => {
-                if (!dragging) return;
-                // direction: 'below' = dragging resizes section above, 'above' = section below
-                const delta = direction === 'above' ? (startY - e.clientY) : (e.clientY - startY);
-                const newHeight = Math.max(0, Math.min(600, startHeight + delta));
-                target.style.height = newHeight + 'px';
-            });
-
-            document.addEventListener('mouseup', () => {
-                if (!dragging) return;
-                dragging = false;
-                handle.classList.remove('dragging');
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            });
-        }
-
-        setupResizeHandle('memoryResizeHandle', 'memorySection', 'below');
-        setupResizeHandle('resizeHandle', 'bottomSection', 'above');
-
         traceInput.addEventListener('input', () => {
             hideError();
             // If user edits trace, reset

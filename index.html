@@ -61,37 +61,39 @@
             <!-- Single Protocol View -->
             <div id="singleView" class="single-view">
                 <div class="cache-section">
-                    <h3>Cache States</h3>
+                    <div class="cache-header-row">
+                        <h3>Cache States</h3>
+                        <div class="memory-inline" id="memorySection">
+                            <span class="memory-label">Memory:</span>
+                            <div id="memoryGrid" class="memory-grid"></div>
+                        </div>
+                    </div>
                     <div id="cacheGrid" class="cache-grid"></div>
                 </div>
-                <div class="memory-section" id="memorySection">
-                    <h3>Memory</h3>
-                    <div id="memoryGrid" class="memory-grid"></div>
-                </div>
-                <div class="resize-handle" id="memoryResizeHandle"></div>
-                <div class="history-section">
-                    <h3>Step History</h3>
-                    <div id="historyTable" class="history-table-wrap"></div>
-                </div>
-                <div class="resize-handle" id="resizeHandle"></div>
-                <div class="bottom-section" id="bottomSection">
-                    <div class="bus-log">
-                        <h3>Bus Log</h3>
-                        <div id="busLog" class="bus-log-entries"></div>
+                <div class="detail-columns">
+                    <div class="history-section">
+                        <h3>Step History</h3>
+                        <div id="historyTable" class="history-table-wrap"></div>
                     </div>
-                    <div class="stats-panel">
-                        <h3>Statistics</h3>
-                        <div class="stat-item">
-                            <span class="stat-label">Bus Messages</span>
-                            <span id="statBus" class="stat-value">0</span>
+                    <div class="right-column">
+                        <div class="bus-log">
+                            <h3>Bus Log</h3>
+                            <div id="busLog" class="bus-log-entries"></div>
                         </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Invalidations</span>
-                            <span id="statInv" class="stat-value">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Writebacks</span>
-                            <span id="statWb" class="stat-value">0</span>
+                        <div class="stats-panel">
+                            <h3>Statistics</h3>
+                            <div class="stat-item">
+                                <span class="stat-label">Bus Messages</span>
+                                <span id="statBus" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Invalidations</span>
+                                <span id="statInv" class="stat-value">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Writebacks</span>
+                                <span id="statWb" class="stat-value">0</span>
+                            </div>
                         </div>
                     </div>
                 </div>
