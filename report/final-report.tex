@@ -133,20 +133,20 @@ Table~\ref{tab:parametric} presents the parametric sweep results. Two clear tren
 
 \begin{table}[h]
 \centering
-\caption{Parametric sweep: 500 ops, 4 procs, 8 blocks, 50\% reads, averaged over 5 runs. Bus traffic (B), invalidations (I), writebacks (W). Reporting every 20\% for space; full 10\%-increment data available in the code repository.}
+\caption{Parametric sweep: 500 ops, 4 procs, 8 blocks, 50\% reads, averaged over 5 runs. Reporting every 20\%; full data in code repository.}
 \label{tab:parametric}
-\small
-\begin{tabular}{@{}rcccc@{}}
+\footnotesize
+\begin{tabular}{@{}rccc@{}}
 \toprule
-\textbf{Sharing} & \textbf{MSI} & \textbf{MESI} & \textbf{MOESI} & \textbf{MESI $\Delta$} \\
- & B/I/W & B/I/W & B/I/W & Bus \\
+\textbf{Share} & \textbf{MSI} & \textbf{MESI} & \textbf{MOESI} \\
+ & B / I / W & B / I / W & B / I / W \\
 \midrule
-0\%   & 20/0/0     & 16/0/0     & 16/0/0     & $-$20.0\% \\
-20\%  & 162/54/39  & 157/54/39  & 157/54/0   & $-$3.1\% \\
-40\%  & 277/105/77 & 272/105/77 & 272/105/0  & $-$1.8\% \\
-60\%  & 439/179/133 & 434/179/133 & 434/179/0 & $-$1.1\% \\
-80\%  & 565/235/166 & 561/235/166 & 561/235/0 & $-$0.7\% \\
-100\% & 681/297/214 & 681/297/214 & 681/297/0 & 0.0\% \\
+0\%   & 20/0/0     & 16/0/0     & 16/0/0 \\
+20\%  & 162/54/39  & 157/54/39  & 157/54/0 \\
+40\%  & 277/105/77 & 272/105/77 & 272/105/0 \\
+60\%  & 439/179/133 & 434/179/133 & 434/179/0 \\
+80\%  & 565/235/166 & 561/235/166 & 561/235/0 \\
+100\% & 681/297/214 & 681/297/214 & 681/297/0 \\
 \bottomrule
 \end{tabular}
 \end{table}
