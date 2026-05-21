@@ -60,7 +60,7 @@ The simulator is implemented as a client-side web application in JavaScript, HTM
 
 One non-obvious decision arose in the MOESI protocol when handling a \texttt{BusRdX} (write miss) directed at a block held in M state by another cache. The M holder must relinquish the block (M$\to$I) and supply data to the requester via cache-to-cache transfer. Critically, no writeback to memory is needed here: the dirty value transfers directly to the new M holder, who becomes responsible for eventually writing it back. Memory remains stale, but the SWMR invariant is maintained because exactly one cache holds the block in M at all times. This decision is correct for our model (unlimited cache, no eviction), but in a real system with finite caches, an eviction of the new M holder before writeback would require a memory update.
 
-The simulator was validated by an automated test suite of 50 tests covering all state transitions, bus messages, snoop behavior, and data value propagation for all three protocols.
+The simulator was validated by an automated test suite with 50 assertions across 11 test groups, covering all state transitions, bus messages, snoop behavior, and data value propagation for all three protocols.
 
 \begin{figure*}[!bp]
 \centering
@@ -88,7 +88,7 @@ We define the \textbf{bus traffic} metric as follows: each bus request (\texttt{
 \midrule
 Basic MSI (L04) & 2 & 5 & Baseline transitions \\
 Silent Upgrade & 1 & 2 & E$\to$M (no bus) \\
-No Writeback & 2 & 3 & M$\to$O (no WB) \\
+MOESI No-WB Adv. & 2 & 3 & M$\to$O (no WB) \\
 3-Proc Contention & 3 & 5 & Invalidation cascades \\
 SMT Sharing & 4 & 9 & Multi-block sharing \\
 Private Data & 3 & 6 & E-state allocation \\
@@ -115,7 +115,7 @@ Table~\ref{tab:results} confirms that the simulator produces the expected result
 \midrule
 Basic MSI        & 8 / 2 / 1 & 8 / 2 / 1 & 8 / 2 / 0 \\
 Silent Upgrade   & 3 / 0 / 0 & 2 / 0 / 0 & 2 / 0 / 0 \\
-No Writeback     & 5 / 0 / 1 & 4 / 0 / 1 & 4 / 0 / 0 \\
+MOESI No-WB Adv. & 5 / 0 / 1 & 4 / 0 / 1 & 4 / 0 / 0 \\
 3-Proc Contention & 10 / 4 / 1 & 10 / 4 / 1 & 10 / 4 / 0 \\
 SMT Sharing      & 13 / 1 / 3 & 12 / 1 / 3 & 12 / 1 / 0 \\
 Private Data     & 9 / 0 / 0 & 6 / 0 / 0 & 6 / 0 / 0 \\
@@ -133,7 +133,7 @@ Table~\ref{tab:parametric} presents the parametric sweep results. Two clear tren
 
 \begin{table}[h]
 \centering
-\caption{Parametric sweep: 500 ops, 4 procs, 8 blocks, 50\% reads. Bus traffic (B), invalidations (I), writebacks (W). MESI $\Delta$: bus reduction vs.\ MSI.}
+\caption{Parametric sweep: 500 ops, 4 procs, 8 blocks, 50\% reads, averaged over 5 runs. Bus traffic (B), invalidations (I), writebacks (W). Reporting every 20\% for space; full 10\%-increment data available in the code repository.}
 \label{tab:parametric}
 \small
 \begin{tabular}{@{}rcccc@{}}
@@ -153,7 +153,7 @@ Table~\ref{tab:parametric} presents the parametric sweep results. Two clear tren
 
 \textbf{MESI's bus advantage diminishes with sharing.} At 0\% sharing (fully private data), MESI reduces bus traffic by 20\% over MSI. As the sharing ratio increases, this advantage shrinks monotonically: 3.1\% at 20\%, 1.1\% at 60\%, and \textbf{vanishes entirely at 100\% sharing}. This is because the E state is only allocated when no other cache holds the block. As sharing increases, more reads find other sharers present, forcing the block into S instead of E and requiring a \texttt{BusUpgr} on subsequent writes --- exactly as MSI would. This quantifies a result that is qualitatively known but rarely measured: MESI's Exclusive optimization is \emph{only} effective for private-data access patterns.
 
-\textbf{MOESI eliminates 100\% of writebacks at all sharing ratios.} Regardless of workload, MOESI produces zero writebacks while MSI and MESI produce writebacks that scale linearly with sharing (0 at 0\% sharing to 214 at 100\%). This confirms that the Owned state's benefit is orthogonal to sharing ratio: whenever a dirty block is read by another processor, the O state avoids the writeback regardless of how many shared accesses exist. As noted earlier, this is an upper bound --- real caches with eviction would trigger O$\to$I writebacks under cache pressure.
+\textbf{MOESI eliminates 100\% of writebacks at all sharing ratios.} Regardless of workload, MOESI produces zero writebacks while MSI and MESI produce writebacks that grow monotonically with sharing (0 at 0\% sharing to 214 at 100\%). This confirms that the Owned state's benefit is orthogonal to sharing ratio: whenever a dirty block is read by another processor, the O state avoids the writeback regardless of how many shared accesses exist. As noted earlier, this is an upper bound --- real caches with eviction would trigger O$\to$I writebacks under cache pressure.
 
 \begin{figure*}[!bp]
 \centering
@@ -164,7 +164,7 @@ Table~\ref{tab:parametric} presents the parametric sweep results. Two clear tren
 
 \subsection{Discussion}
 
-The parametric results reveal a nuance not visible in small traces: the strict hierarchy MSI $\leq$ MESI $\leq$ MOESI holds across all sharing ratios, but the \emph{magnitude} of the gap varies dramatically. MESI's advantage is concentrated in private-data workloads and effectively disappears under heavy sharing, while MOESI's writeback elimination is uniformly beneficial. This explains the design choices of real processors: AMD uses MOESI~\cite{sweazey1986moesi} for its writeback savings across all workloads, while Intel adopted MESIF for efficient data forwarding on point-to-point interconnects where a designated supplier reduces redundant memory traffic.
+The parametric results reveal a nuance not visible in small traces: the non-strict hierarchy MSI $\geq$ MESI $\geq$ MOESI (in terms of bus traffic and writebacks) holds across all sharing ratios, but \emph{collapses to equality at the boundaries}. At 100\% sharing, MESI = MSI in bus traffic---the E state provides no benefit when every access finds other sharers. MESI's advantage is concentrated in private-data workloads and vanishes under heavy sharing. Notably, MOESI and MESI produce \emph{identical} bus traffic at every sharing ratio; the O state eliminates writebacks but does not reduce bus request/response counts. MOESI's writeback elimination, by contrast, is uniformly beneficial across all sharing ratios. This explains the design choices of real processors: AMD uses MOESI~\cite{sweazey1986moesi} for its writeback savings across all workloads, while Intel adopted MESIF for efficient data forwarding on point-to-point interconnects where a designated supplier reduces redundant memory traffic.
 
 % ============================================================
 \section{Conclusion and Lessons Learned}
